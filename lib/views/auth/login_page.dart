@@ -21,7 +21,7 @@ class LoginPage extends StatelessWidget {
               const Icon(Icons.restaurant_menu, size: 100, color: Colors.orange),
               const SizedBox(height: 10),
               const Text(
-                "Bem-vindo ao Bob",
+                "Bem-vindo ao Zest",
                 style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 40),

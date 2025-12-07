@@ -17,7 +17,7 @@ class RegisterPage extends StatelessWidget {
         padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
-            const Text("Faça seu cadastro no Bob", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            const Text("Faça seu cadastro no Zest", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
             const SizedBox(height: 30),
 
             // Campo Nome

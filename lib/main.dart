@@ -5,11 +5,11 @@ import 'controllers/auth_controller.dart';
 import 'views/auth/login_page.dart';
 import 'views/home/home_page.dart';
 import 'views/restaurant/add_restaurant_page.dart';
+import 'views/map/map_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Inicia o Firebase (Banco e Auth)
   await Firebase.initializeApp();
   
   runApp(const MyApp());
@@ -21,7 +21,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
-      title: 'Projeto Restaurante',
+      title: 'Zest',
       debugShowCheckedModeBanner: false,
 
       // Tema do App
@@ -40,6 +40,7 @@ class MyApp extends StatelessWidget {
         GetPage(name: '/login', page: () => LoginPage()),
         GetPage(name: '/home', page: () => HomePage()),
         GetPage(name: '/add-restaurant', page: () => AddRestaurantPage()),
+        GetPage(name: '/map', page: () => MapPage()),
       ],
     );
   }

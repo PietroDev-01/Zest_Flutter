@@ -14,6 +14,7 @@ dependencies:
 
   google_maps_flutter: ^2.6.0
   geolocator: ^11.0.0
+  geocoding: ^2.1.1
 
   # Banco de Dados
   firebase_core: ^2.27.0
@@ -26,6 +27,7 @@ dependencies:
   url_launcher: ^6.2.5
   lottie: ^3.1.0
   uuid: ^4.3.3
+  mask_text_input_formatter: ^2.9.0
 
   cupertino_icons: ^1.0.8
 

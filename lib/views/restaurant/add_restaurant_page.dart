@@ -4,13 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../controllers/restaurant_controller.dart';
 import '../../models/restaurant_model.dart';
-import '../../controllers/auth_controller.dart';
 
 class AddRestaurantPage extends StatefulWidget {
-  AddRestaurantPage({super.key}); 
+  AddRestaurantPage({super.key});
 
   @override
   State<AddRestaurantPage> createState() => _AddRestaurantPageState();
@@ -19,15 +20,12 @@ class AddRestaurantPage extends StatefulWidget {
 class _AddRestaurantPageState extends State<AddRestaurantPage> {
   final RestaurantController controller = Get.find();
   
-  final AuthController authController = Get.isRegistered<AuthController>() 
-      ? Get.find<AuthController>() 
-      : Get.put(AuthController());
-
   final nameCtrl = TextEditingController();
   final descCtrl = TextEditingController();
   final whatsappCtrl = TextEditingController();
   final openTimeCtrl = TextEditingController();
   final closeTimeCtrl = TextEditingController();
+  final addressCtrl = TextEditingController();
   
   File? _selectedImage;
   String _base64Image = "";
@@ -36,14 +34,18 @@ class _AddRestaurantPageState extends State<AddRestaurantPage> {
   double? _latitude;
   double? _longitude;
 
+  // --- Máscaras de Formatação ---
+  final maskTime = MaskTextInputFormatter(mask: '##:##', filter: { "#": RegExp(r'[0-9]') });
+  final maskPhone = MaskTextInputFormatter(mask: '(##) 9 ####-####', filter: { "#": RegExp(r'[0-9]') });
+
   final List<String> allTags = [
     "Pizzaria", "Hamburgueria", "Massas", "Comida Brasileira", 
     "Sorveteria", "Açaí", "Salgado", "Churrasco", "Bebida", 
-    "Comida Caseira", "Sushi", "Lanche"
+    "Comida Caseira", "Sushi", "Lanche",
   ];
 
   Future<void> _pickImage() async {
-    final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 50);
+    final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 25, maxWidth: 600);
     if (pickedFile != null) {
       final bytes = await File(pickedFile.path).readAsBytes();
       setState(() {
@@ -53,45 +55,29 @@ class _AddRestaurantPageState extends State<AddRestaurantPage> {
     }
   }
 
-  // --- GPS: Pedir Permissão ---
+  // --- BUSCAR LOCALIZAÇÃO POR GPS ---
   Future<void> _getCurrentLocation() async {
     setState(() => _isLoadingLoc = true);
-    
     try {
-      // Verifica se o serviço de GPS está ligado
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        Get.snackbar("Erro", "O GPS está desligado. Ligue-o para continuar.");
+        Get.snackbar("Erro", "Ligue o GPS.");
         return;
       }
-
-      // Verifica a permissão
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
-        // Se não tem, pede a permissão
         permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          Get.snackbar("Erro", "Você precisa autorizar o uso do GPS.");
-          return;
-        }
+        if (permission == LocationPermission.denied) return;
       }
       
-      if (permission == LocationPermission.deniedForever) {
-        Get.snackbar("Erro", "Permissão negada permanentemente. Vá nas configurações.");
-        return;
-      }
-
-      // 3. Pega a localização com precisão
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high
-      );
-
+      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      
       setState(() {
         _latitude = position.latitude;
         _longitude = position.longitude;
+        addressCtrl.text = "Localização GPS Capturada";
       });
-      
-      Get.snackbar("Sucesso", "Localização encontrada!", backgroundColor: Colors.green, colorText: Colors.white);
+      Get.snackbar("Sucesso", "GPS Capturado!", backgroundColor: Colors.green, colorText: Colors.white);
 
     } catch (e) {
       Get.snackbar("Erro", "Falha no GPS: $e");
@@ -100,12 +86,39 @@ class _AddRestaurantPageState extends State<AddRestaurantPage> {
     }
   }
 
-  void _saveRestaurant() {
-    if (nameCtrl.text.isEmpty || _selectedTags.isEmpty || _latitude == null) {
-      Get.snackbar("Atenção", "Preencha Nome, Tags e Localização (Obrigatórios)", backgroundColor: Colors.red, colorText: Colors.white);
+  // --- BUSCAR LOCALIZAÇÃO POR ENDEREÇO ESCRITO ---
+  Future<void> _getManualLocation() async {
+    if (addressCtrl.text.isEmpty) {
+      Get.snackbar("Atenção", "Digite um endereço ou CEP para buscar.");
       return;
     }
+    setState(() => _isLoadingLoc = true);
+    try {
+      // Converte "Rua X, Teresina" em Lat/Long
+      List<Location> locations = await locationFromAddress(addressCtrl.text);
+      
+      if (locations.isNotEmpty) {
+        setState(() {
+          _latitude = locations.first.latitude;
+          _longitude = locations.first.longitude;
+        });
+        Get.snackbar("Encontrado", "Endereço localizado no mapa!", backgroundColor: Colors.green, colorText: Colors.white);
+      } else {
+        Get.snackbar("Erro", "Endereço não encontrado.");
+      }
+    } catch (e) {
+      Get.snackbar("Erro", "Não foi possível achar esse endereço.");
+    } finally {
+      setState(() => _isLoadingLoc = false);
+    }
+  }
 
+  void _saveRestaurant() {
+    if (nameCtrl.text.isEmpty || _selectedTags.isEmpty || _latitude == null) {
+      Get.snackbar("Atenção", "Preencha Nome, Tags e Localização", backgroundColor: Colors.red, colorText: Colors.white);
+      return;
+    }
+    
     final newRestaurant = RestaurantModel(
       id: "",
       ownerId: FirebaseAuth.instance.currentUser?.uid ?? "anonimo",
@@ -132,15 +145,26 @@ class _AddRestaurantPageState extends State<AddRestaurantPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("Dados Principais", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            
+            const Text("Dados Principais", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 15),
+
+            // 1. NOME
+            const Text("Nome do Estabelecimento *", style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 5),
+            TextField(
+              controller: nameCtrl,
+              maxLength: 50,
+              decoration: const InputDecoration(labelText: "Inserir Nome", border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 20),
+
+            // 2. LOGO
             Center(
               child: GestureDetector(
                 onTap: _pickImage,
                 child: Container(
-                  width: 150,
-                  height: 150,
+                  width: 135,
+                  height: 135,
                   decoration: BoxDecoration(
                     color: Colors.grey[200],
                     shape: BoxShape.circle,
@@ -155,39 +179,49 @@ class _AddRestaurantPageState extends State<AddRestaurantPage> {
                 ),
               ),
             ),
-            const Center(child: Padding(
-              padding: EdgeInsets.all(8.0),
-              child: Text("Toque para adicionar a logo", style: TextStyle(fontSize: 12, color: Colors.grey)),
-            )),
+            const Center(child: Text("Logo", style: TextStyle(color: Colors.grey))),
+            const SizedBox(height: 20),
 
-            const SizedBox(height: 15),
-            TextField(
-              controller: nameCtrl,
-              maxLength: 50,
-              decoration: const InputDecoration(labelText: "Nome do Estabelecimento *", border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 10),
-
+            // 3. HORÁRIOS COM MÁSCARA
+            const Text("Horário De Funcionamento", style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 5),
             Row(
               children: [
                 Expanded(child: TextField(
-                  controller: openTimeCtrl, 
-                  maxLength: 5,
-                  keyboardType: TextInputType.datetime,
-                  decoration: const InputDecoration(labelText: "Abre (18:00)", border: OutlineInputBorder())
+                  controller: openTimeCtrl,
+                  inputFormatters: [maskTime], // A Mágica acontece aqui
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: "Abre (ex: 18:00)", border: OutlineInputBorder())
                 )),
                 const SizedBox(width: 10),
                 Expanded(child: TextField(
-                  controller: closeTimeCtrl, 
-                  maxLength: 5,
-                  keyboardType: TextInputType.datetime,
-                  decoration: const InputDecoration(labelText: "Fecha (23:00)", border: OutlineInputBorder())
+                  controller: closeTimeCtrl,
+                  inputFormatters: [maskTime],
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: "Fecha (ex: 23:00)", border: OutlineInputBorder())
                 )),
               ],
             ),
-
             const SizedBox(height: 15),
-            const Text("Com o que você trabalha? (Tags) *", style: TextStyle(fontWeight: FontWeight.bold)),
+
+            // 4. WHATSAPP COM MÁSCARA
+            const Text("Whatsapp de Atendimento", style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 5),
+            TextField(
+              controller: whatsappCtrl,
+              inputFormatters: [maskPhone],
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(
+                labelText: "Whatsapp", 
+                hintText: "(86) 9 9999-9999",
+                prefixIcon: Icon(Icons.phone, color: Colors.green),
+                border: OutlineInputBorder()
+              ),
+            ),
+            const SizedBox(height: 15),
+
+            // 5. TAGS
+            const Text("Categorias *", style: TextStyle(fontWeight: FontWeight.bold)),
             Wrap(
               spacing: 8,
               children: allTags.map((tag) {
@@ -206,23 +240,56 @@ class _AddRestaurantPageState extends State<AddRestaurantPage> {
             ),
             const SizedBox(height: 15),
 
-            TextField(
-              controller: whatsappCtrl,
-              keyboardType: TextInputType.phone,
-              maxLength: 15,
-              decoration: const InputDecoration(labelText: "WhatsApp (XX) 9 XXXX-XXXX", border: OutlineInputBorder()),
-            ),
-            
+            // Descrição 
+            const Text("Descrição", style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 5),
             TextField(
               controller: descCtrl,
               maxLength: 255,
-              maxLines: 3,
-              decoration: const InputDecoration(labelText: "Descrição breve", border: OutlineInputBorder()),
+              maxLines: 2,
+              decoration: const InputDecoration(labelText: "Descreva Seu Restaurante", border: OutlineInputBorder()),
             ),
-            const SizedBox(height: 15),
+            const SizedBox(height: 20),
 
+            // 6. LOCALIZAÇÃO HÍBRIDA
             const Text("Localização *", style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 5),
+            
+            // Campo de Texto para Endereço Manual
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: addressCtrl,
+                    decoration: const InputDecoration(
+                      labelText: "Digite Endereço ou CEP",
+                      hintText: "Ex: Av. Frei Serafim, Teresina",
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                // Botão de Buscar Endereço Manual
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.search, color: Colors.blue),
+                    tooltip: "Buscar no Mapa",
+                    onPressed: _isLoadingLoc ? null : _getManualLocation,
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 15),
+            const Center(child: Text("- OU USE O GPS -", style: TextStyle(color: Colors.grey, fontSize: 12))),
+            const SizedBox(height: 15),
+
+            // Botão de Usar a Localização Atual
             SizedBox(
               width: double.infinity,
               height: 50,
@@ -230,46 +297,36 @@ class _AddRestaurantPageState extends State<AddRestaurantPage> {
                 onPressed: _isLoadingLoc ? null : _getCurrentLocation,
                 icon: _isLoadingLoc 
                     ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) 
-                    : const Icon(Icons.my_location),
-                label: Text(_latitude == null ? "Usar Localização Atual" : "Localização Capturada!"),
+                    : const Icon(Icons.my_location, color: Colors.white),
+                label: Text(
+                  _latitude == null ? "Usar Localização Atual" : "Localização Capturada!",
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _latitude == null ? Colors.blue : Colors.green,
-                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
               ),
             ),
+            if (_latitude != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Text("✅ Coordenadas salvas: $_latitude, $_longitude", style: TextStyle(color: Colors.green[700], fontSize: 12)),
+              ),
+            
             const SizedBox(height: 30),
 
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Get.back(), 
-                    child: const Text("Cancelar", style: TextStyle(color: Colors.red)),
-                    style: OutlinedButton.styleFrom(padding: EdgeInsets.symmetric(vertical: 15), side: const BorderSide(color: Colors.red)),
-                  ),
-                ),
-                const SizedBox(width: 15),
-                
-                Expanded(
-                  child: Obx(() => ElevatedButton(
-                    onPressed: controller.isLoading.value ? null : _saveRestaurant,
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      backgroundColor: Colors.green,
-                      disabledBackgroundColor: Colors.green.withOpacity(0.6),
-                    ),
-                    child: controller.isLoading.value
-                        ? const SizedBox(
-                            width: 20, 
-                            height: 20, 
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-                          )
-                        : const Text("Salvar", style: TextStyle(color: Colors.white)),
-                  )),
-                ),
-              ],
+            // BOTÃO SALVAR
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: _saveRestaurant,
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                child: const Text("Salvar Restaurante", style: TextStyle(color: Colors.white, fontSize: 18)),
+              ),
             ),
+            const SizedBox(height: 20),
           ],
         ),
       ),

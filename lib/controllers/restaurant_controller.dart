@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/restaurant_model.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'utils.dart';
 
 class RestaurantController extends GetxController {
   var restaurants = <RestaurantModel>[].obs;
@@ -14,7 +16,16 @@ class RestaurantController extends GetxController {
     fetchRestaurants();
   }
 
-  // --- BUSCAR DADOS  ---
+  // --- ABRIR ROTA NO GOOGLE MAPS EXTERNO ---
+  Future<void> openRouteOnGoogleMaps(double lat, double long) async {
+    final Uri googleMapsUrl = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=$lat,$long");
+    
+    if (!await launchUrl(googleMapsUrl, mode: LaunchMode.externalApplication)) {
+      Get.snackbar("Erro", "Não foi possível abrir o mapa.");
+    }
+  }
+
+  // --- BUSCAR DADOS (READ) ---
   void fetchRestaurants() {
     isLoading.value = true;
     FirebaseFirestore.instance
@@ -33,37 +44,51 @@ class RestaurantController extends GetxController {
     });
   }
 
-  // Função auxiliar para saber se é URL ou Base64
+  // --- CRIAR (CREATE) ---
+  Future<void> addRestaurant(RestaurantModel restaurant) async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    showLoadingDialog("Cadastrando seu restaurante...");
+    
+    try {
+      await FirebaseFirestore.instance
+          .collection('restaurants')
+          .add(restaurant.toMap());
+          
+      hideLoadingDialog();
+
+      Get.offAllNamed('/home');
+      
+      Get.snackbar(
+        "Sucesso", 
+        "Restaurante cadastrado!", 
+        backgroundColor: Colors.green, 
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2)
+      );
+      
+    } catch (e) {
+      hideLoadingDialog();
+      
+      Get.snackbar(
+        "Erro", 
+        "Falha ao salvar: $e", 
+        backgroundColor: Colors.red, 
+        colorText: Colors.white
+      );
+    }
+  }
+
+  // Função auxiliar de Imagem
   ImageProvider getImageProvider(String logoString) {
     if (logoString.isEmpty) {
-      return const AssetImage('assets/placeholder.png');
-    }
-    if (logoString.startsWith('http')) {
-      return NetworkImage(logoString); 
+      return const NetworkImage('https://placehold.co/100x100.png?text=Sem+Logo'); 
     }
     try {
       return MemoryImage(base64Decode(logoString));
     } catch (e) {
-      return const AssetImage('assets/placeholder.png');
-    }
-  }
-
-  // --- Criar Restaurante---
-  Future<void> addRestaurant(RestaurantModel restaurant) async {
-    isLoading.value = true;
-
-    try {
-      await FirebaseFirestore.instance
-      .collection('restaurants')
-      .add(restaurant.toMap());
-
-      Get.back();
-      Get.snackbar("Sucesso", "Restaurante Cadastrado!", backgroundColor: Colors.green, colorText: Colors.white);
-
-    } catch (e) {
-      Get.snackbar("Erro", "Falha ao Salvar: $e", backgroundColor: Colors.red, colorText: Colors.white);
-    } finally {
-      isLoading.value = false;
+      return const NetworkImage('https://placehold.co/100x100.png?text=Erro');
     }
   }
 }

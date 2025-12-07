@@ -23,7 +23,7 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
 
-    // Timer: Depois de 7 segundos, encolhe os botões flutuantes para limpar a tela
+    // Timer
     Timer(const Duration(seconds: 7), () {
       if (mounted) {
         setState(() {
@@ -82,7 +82,6 @@ class _HomePageState extends State<HomePage> {
         children: [
           // LISTA DE RESTAURANTES
           Obx(() {
-            // Se estiver carregando, mostra rodinha
             if (resController.isLoading.value) {
               return const Center(child: CircularProgressIndicator());
             }
@@ -130,7 +129,7 @@ class _HomePageState extends State<HomePage> {
       
       // Menu Inferior (Navegação)
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 0, // Home selecionada
+        currentIndex: 0,
         selectedItemColor: Colors.orange,
         unselectedItemColor: Colors.grey,
         onTap: (index) {
