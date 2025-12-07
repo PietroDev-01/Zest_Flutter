@@ -3,9 +3,9 @@ import 'package:get/get.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'controllers/auth_controller.dart';
 import 'views/auth/login_page.dart';
-import 'views/home/home_page.dart';
 import 'views/restaurant/add_restaurant_page.dart';
 import 'views/map/map_page.dart';
+import 'views/root_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,7 +38,7 @@ class MyApp extends StatelessWidget {
       initialRoute: '/login',
       getPages: [
         GetPage(name: '/login', page: () => LoginPage()),
-        GetPage(name: '/home', page: () => HomePage()),
+        GetPage(name: '/home', page: () => RootPage()),
         GetPage(name: '/add-restaurant', page: () => AddRestaurantPage()),
         GetPage(name: '/map', page: () => MapPage()),
       ],

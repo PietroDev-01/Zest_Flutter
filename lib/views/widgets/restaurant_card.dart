@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../models/restaurant_model.dart';
 import '../../controllers/restaurant_controller.dart';
+import 'restaurant_details_sheet.dart';
 
 class RestaurantCard extends StatelessWidget {
   final RestaurantModel restaurant;
@@ -48,6 +49,14 @@ class RestaurantCard extends StatelessWidget {
           ],
         ),
         onTap: () {
+          Get.bottomSheet(
+            RestaurantDetailsSheet(
+              restaurant: restaurant,
+              isFromHome: true,
+            ),
+            isScrollControlled: true,
+            barrierColor: Colors.black.withOpacity(0.2)
+          );
         },
       ),
     );

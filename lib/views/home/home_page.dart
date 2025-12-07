@@ -126,22 +126,6 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      
-      // Menu Inferior (Navegação)
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 0,
-        selectedItemColor: Colors.orange,
-        unselectedItemColor: Colors.grey,
-        onTap: (index) {
-          if (index == 1) Get.toNamed('/map');
-          if (index == 2) Get.toNamed('/profile');
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.store), label: "Restaurantes"),
-          BottomNavigationBarItem(icon: Icon(Icons.map), label: "Mapa"),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: "Perfil"),
-        ],
-      ),
     );
   }
 

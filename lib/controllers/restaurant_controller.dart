@@ -44,6 +44,11 @@ class RestaurantController extends GetxController {
     });
   }
 
+  var restaurantToFocus = Rxn<RestaurantModel>();
+
+  void goToMapAndFocus(RestaurantModel restaurant) {
+    restaurantToFocus.value = restaurant;
+  }
   // --- CRIAR (CREATE) ---
   Future<void> addRestaurant(RestaurantModel restaurant) async {
     FocusManager.instance.primaryFocus?.unfocus();
