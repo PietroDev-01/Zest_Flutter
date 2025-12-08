@@ -8,15 +8,15 @@ import '../widgets/filter_sheet.dart';
 import '../widgets/search_dialog.dart';
 
 class HomePage extends StatefulWidget {
-  HomePage({super.key});
+  const HomePage({super.key});
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  final RestaurantController resController = Get.put(RestaurantController());
-  
+  // Usamos Get.find() porque o RestaurantController já foi injetado no main.dart
+  final RestaurantController resController = Get.find(); 
   final AuthController authController = Get.find();
 
   bool isExpanded = true;
@@ -25,7 +25,7 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
 
-    // Timer
+    // Timer para encolher os botões após 7 segundos
     Timer(const Duration(seconds: 7), () {
       if (mounted) {
         setState(() {
@@ -62,11 +62,16 @@ class _HomePageState extends State<HomePage> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Flexible(
-              child: Text(
-                _getGreeting(),
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 20),
-              ),
+              child: Obx(() {
+                final nome = authController.currentUserName.value;
+                final display = nome.isNotEmpty ? nome.split(' ')[0] : "Visitante";
+                
+                return Text(
+                  "Olá $display",
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 20),
+                );
+              }),
             ),
             
             // Botão Sugestão (Lâmpada)
@@ -185,11 +190,5 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
-  }
-  String _getGreeting() {
-    if (authController == null) return "Olá Visitante";
-    String nome = authController!.nameController.text;
-    if (nome.isEmpty) return "Olá Usuário";
-    return "Olá ${nome.split(' ')[0]}";
   }
 }

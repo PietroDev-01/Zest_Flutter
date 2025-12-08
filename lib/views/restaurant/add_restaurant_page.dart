@@ -11,15 +11,17 @@ import '../../controllers/restaurant_controller.dart';
 import '../../models/restaurant_model.dart';
 
 class AddRestaurantPage extends StatefulWidget {
-  AddRestaurantPage({super.key});
+  final RestaurantModel? restaurantToEdit;
+  
+  const AddRestaurantPage({super.key, this.restaurantToEdit});
 
   @override
   State<AddRestaurantPage> createState() => _AddRestaurantPageState();
 }
 
 class _AddRestaurantPageState extends State<AddRestaurantPage> {
+  // --- CONTROLADORES ---
   final RestaurantController controller = Get.find();
-  
   final nameCtrl = TextEditingController();
   final descCtrl = TextEditingController();
   final whatsappCtrl = TextEditingController();
@@ -27,6 +29,11 @@ class _AddRestaurantPageState extends State<AddRestaurantPage> {
   final closeTimeCtrl = TextEditingController();
   final addressCtrl = TextEditingController();
   
+  // --- MÁSCARAS DE FORMATAÇÃO ---
+  final maskTime = MaskTextInputFormatter(mask: '##:##', filter: { "#": RegExp(r'[0-9]') });
+  final maskPhone = MaskTextInputFormatter(mask: '(##) 9 ####-####', filter: { "#": RegExp(r'[0-9]') });
+
+  // --- VARIÁVEIS DE ESTADO ---
   File? _selectedImage;
   String _base64Image = "";
   final List<String> _selectedTags = [];
@@ -34,18 +41,42 @@ class _AddRestaurantPageState extends State<AddRestaurantPage> {
   double? _latitude;
   double? _longitude;
 
-  // --- Máscaras de Formatação ---
-  final maskTime = MaskTextInputFormatter(mask: '##:##', filter: { "#": RegExp(r'[0-9]') });
-  final maskPhone = MaskTextInputFormatter(mask: '(##) 9 ####-####', filter: { "#": RegExp(r'[0-9]') });
-
+  // --- LISTA DE TAGS ---
   final List<String> allTags = [
     "Pizzaria", "Hamburgueria", "Massas", "Comida Brasileira", 
     "Sorveteria", "Açaí", "Salgado", "Churrasco", "Bebida", 
     "Comida Caseira", "Sushi", "Lanche",
   ];
 
+  // --- CICLO DE VIDA (INIT) ---
+  @override
+  void initState() {
+    super.initState();
+    // Se for edição, preenche os campos com os dados existentes
+    if (widget.restaurantToEdit != null) {
+      final r = widget.restaurantToEdit!;
+      nameCtrl.text = r.name;
+      descCtrl.text = r.description;
+      whatsappCtrl.text = r.whatsapp;
+      openTimeCtrl.text = r.openTime;
+      closeTimeCtrl.text = r.closeTime;
+      _base64Image = r.logoUrl;
+      _selectedTags.addAll(r.tags);
+      _latitude = r.latitude;
+      _longitude = r.longitude;
+    }
+  }
+
+  // --- FUNÇÕES DE LÓGICA ---
+
+  // 1. Selecionar Imagem
   Future<void> _pickImage() async {
-    final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 25, maxWidth: 600);
+    final pickedFile = await ImagePicker().pickImage(
+      source: ImageSource.gallery, 
+      imageQuality: 25, 
+      maxWidth: 600
+    );
+    
     if (pickedFile != null) {
       final bytes = await File(pickedFile.path).readAsBytes();
       setState(() {
@@ -55,7 +86,7 @@ class _AddRestaurantPageState extends State<AddRestaurantPage> {
     }
   }
 
-  // --- BUSCAR LOCALIZAÇÃO POR GPS ---
+  // 2. Buscar Localização por GPS
   Future<void> _getCurrentLocation() async {
     setState(() => _isLoadingLoc = true);
     try {
@@ -64,6 +95,7 @@ class _AddRestaurantPageState extends State<AddRestaurantPage> {
         Get.snackbar("Erro", "Ligue o GPS.");
         return;
       }
+      
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -86,7 +118,7 @@ class _AddRestaurantPageState extends State<AddRestaurantPage> {
     }
   }
 
-  // --- BUSCAR LOCALIZAÇÃO POR ENDEREÇO ESCRITO ---
+  // 3. Buscar Localização por Endereço
   Future<void> _getManualLocation() async {
     if (addressCtrl.text.isEmpty) {
       Get.snackbar("Atenção", "Digite um endereço ou CEP para buscar.");
@@ -94,7 +126,6 @@ class _AddRestaurantPageState extends State<AddRestaurantPage> {
     }
     setState(() => _isLoadingLoc = true);
     try {
-      // Converte "Rua X, Teresina" em Lat/Long
       List<Location> locations = await locationFromAddress(addressCtrl.text);
       
       if (locations.isNotEmpty) {
@@ -113,14 +144,15 @@ class _AddRestaurantPageState extends State<AddRestaurantPage> {
     }
   }
 
+  // 4. Salvar ou Atualizar Restaurante
   void _saveRestaurant() {
     if (nameCtrl.text.isEmpty || _selectedTags.isEmpty || _latitude == null) {
       Get.snackbar("Atenção", "Preencha Nome, Tags e Localização", backgroundColor: Colors.red, colorText: Colors.white);
       return;
     }
     
-    final newRestaurant = RestaurantModel(
-      id: "",
+    final restaurantData = RestaurantModel(
+      id: widget.restaurantToEdit?.id ?? "",
       ownerId: FirebaseAuth.instance.currentUser?.uid ?? "anonimo",
       name: nameCtrl.text,
       description: descCtrl.text,
@@ -133,9 +165,14 @@ class _AddRestaurantPageState extends State<AddRestaurantPage> {
       closeTime: closeTimeCtrl.text,
     );
 
-    controller.addRestaurant(newRestaurant);
+    if (widget.restaurantToEdit != null) {
+      controller.updateRestaurant(restaurantData); // ATUALIZA
+    } else {
+      controller.addRestaurant(restaurantData); // CRIA NOVO
+    }
   }
 
+  // --- INTERFACE (BUILD) ---
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -171,9 +208,11 @@ class _AddRestaurantPageState extends State<AddRestaurantPage> {
                     border: Border.all(color: Colors.orange, width: 2),
                     image: _selectedImage != null
                         ? DecorationImage(image: FileImage(_selectedImage!), fit: BoxFit.cover)
-                        : null,
+                        : (_base64Image.isNotEmpty 
+                            ? DecorationImage(image: controller.getImageProvider(_base64Image), fit: BoxFit.cover)
+                            : null),
                   ),
-                  child: _selectedImage == null
+                  child: (_selectedImage == null && _base64Image.isEmpty)
                       ? const Icon(Icons.camera_alt, size: 40, color: Colors.grey)
                       : null,
                 ),
@@ -189,7 +228,7 @@ class _AddRestaurantPageState extends State<AddRestaurantPage> {
               children: [
                 Expanded(child: TextField(
                   controller: openTimeCtrl,
-                  inputFormatters: [maskTime], // A Mágica acontece aqui
+                  inputFormatters: [maskTime],
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(labelText: "Abre (ex: 18:00)", border: OutlineInputBorder())
                 )),
@@ -240,7 +279,7 @@ class _AddRestaurantPageState extends State<AddRestaurantPage> {
             ),
             const SizedBox(height: 15),
 
-            // Descrição 
+            // DESCRIÇÃO
             const Text("Descrição", style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 5),
             TextField(
@@ -323,7 +362,10 @@ class _AddRestaurantPageState extends State<AddRestaurantPage> {
               child: ElevatedButton(
                 onPressed: _saveRestaurant,
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                child: const Text("Salvar Restaurante", style: TextStyle(color: Colors.white, fontSize: 18)),
+                child: Text(
+                  widget.restaurantToEdit != null ? "Atualizar Dados" : "Salvar Restaurante", 
+                  style: const TextStyle(color: Colors.white, fontSize: 18)
+                ),
               ),
             ),
             const SizedBox(height: 20),

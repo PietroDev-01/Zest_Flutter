@@ -5,11 +5,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/restaurant_model.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'utils.dart';
 
 class RestaurantController extends GetxController {
   // lista completa
-  var allRestaurants = <RestaurantModel>[]; 
+  var allRestaurants = <RestaurantModel>[].obs; 
   
   // lista filtrada
   var displayedRestaurants = <RestaurantModel>[].obs;
@@ -29,6 +30,11 @@ class RestaurantController extends GetxController {
     fetchRestaurants();
   }
 
+  List<RestaurantModel> get myRestaurants {
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    return allRestaurants.where((r) => r.ownerId == currentUserId).toList();
+  }
+
   // --- ABRIR ROTA NO GOOGLE MAPS EXTERNO ---
   Future<void> openRouteOnGoogleMaps(double lat, double long) async {
     final Uri googleMapsUrl = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=$lat,$long");
@@ -46,12 +52,14 @@ class RestaurantController extends GetxController {
         .snapshots()
         .listen((snapshot) {
       
-      allRestaurants = snapshot.docs.map((doc) {
+      var list = snapshot.docs.map((doc) {
         return RestaurantModel.fromMap(doc.data(), doc.id);
       }).toList();
 
-      // Ordenação padrão
-      allRestaurants.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+
+      // --- MUDANÇA: Usamos assignAll para atualizar a lista observável
+      allRestaurants.assignAll(list);
 
       // Aplica os filtros
       applyFilters(); 
@@ -156,6 +164,7 @@ class RestaurantController extends GetxController {
   void goToMapAndFocus(RestaurantModel restaurant) {
     restaurantToFocus.value = restaurant;
   }
+
   // --- CRIAR (CREATE) ---
   Future<void> addRestaurant(RestaurantModel restaurant) async {
     FocusManager.instance.primaryFocus?.unfocus();
@@ -189,6 +198,39 @@ class RestaurantController extends GetxController {
         backgroundColor: Colors.red, 
         colorText: Colors.white
       );
+    }
+  }
+
+  // --- ATUALIZAR (UPDATE) ---
+  Future<void> updateRestaurant(RestaurantModel restaurant) async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    showLoadingDialog("Atualizando dados...");
+    try {
+      await FirebaseFirestore.instance
+          .collection('restaurants')
+          .doc(restaurant.id)
+          .update(restaurant.toMap());
+          
+      hideLoadingDialog();
+      Get.back(); // Fecha tela de cadastro
+      Get.snackbar("Sucesso", "Dados atualizados!", backgroundColor: Colors.green, colorText: Colors.white);
+    } catch (e) {
+      hideLoadingDialog();
+      Get.snackbar("Erro", "Falha ao atualizar: $e", backgroundColor: Colors.red, colorText: Colors.white);
+    }
+  }
+
+  // --- EXCLUIR (DELETE) ---
+  Future<void> deleteRestaurant(String id) async {
+    Get.back(); // Fecha o modal
+    showLoadingDialog("Excluindo...");
+    try {
+      await FirebaseFirestore.instance.collection('restaurants').doc(id).delete();
+      hideLoadingDialog();
+      Get.snackbar("Deletado", "Restaurante removido.", backgroundColor: Colors.grey, colorText: Colors.white);
+    } catch (e) {
+      hideLoadingDialog();
+      Get.snackbar("Erro", "Falha ao excluir: $e", backgroundColor: Colors.red, colorText: Colors.white);
     }
   }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'controllers/auth_controller.dart';
+import 'controllers/restaurant_controller.dart';
 import 'views/auth/login_page.dart';
 import 'views/restaurant/add_restaurant_page.dart';
 import 'views/map/map_page.dart';
@@ -9,9 +10,7 @@ import 'views/root_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
   await Firebase.initializeApp();
-  
   runApp(const MyApp());
 }
 
@@ -32,6 +31,7 @@ class MyApp extends StatelessWidget {
       
       initialBinding: BindingsBuilder(() {
         Get.put(AuthController(), permanent: true);
+        Get.put(RestaurantController(), permanent: true);
       }),
       
       // Rotas de Navegação
