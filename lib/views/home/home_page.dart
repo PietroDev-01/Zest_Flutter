@@ -4,6 +4,8 @@ import 'package:get/get.dart';
 import '../../controllers/restaurant_controller.dart';
 import '../../controllers/auth_controller.dart';
 import '../widgets/restaurant_card.dart';
+import '../widgets/filter_sheet.dart';
+import '../widgets/search_dialog.dart';
 
 class HomePage extends StatefulWidget {
   HomePage({super.key});
@@ -31,6 +33,19 @@ class _HomePageState extends State<HomePage> {
         });
       }
     });
+  }
+
+  void _showSearchDialog() {
+    showCustomSearchDialog();
+  }
+
+  // Função para abrir Filtros
+  void _showFilterSheet() {
+    Get.bottomSheet(
+      FilterSheet(isMap: false),
+      isScrollControlled: true,
+      barrierColor: Colors.black.withOpacity(0.2),
+    );
   }
 
   @override
@@ -85,25 +100,24 @@ class _HomePageState extends State<HomePage> {
             if (resController.isLoading.value) {
               return const Center(child: CircularProgressIndicator());
             }
-            // Se a lista estiver vazia, mostra aviso
-            if (resController.restaurants.isEmpty) {
+            
+            if (resController.displayedRestaurants.isEmpty) {
               return const Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.store_mall_directory_outlined, size: 60, color: Colors.grey),
+                    Icon(Icons.search_off, size: 60, color: Colors.grey),
                     SizedBox(height: 10),
-                    Text("Nenhum restaurante cadastrado ainda.", style: TextStyle(color: Colors.grey)),
+                    Text("Nenhum restaurante encontrado.", style: TextStyle(color: Colors.grey)),
                   ],
                 ),
               );
             }
-            // Se tem dados, mostra a lista
             return ListView.builder(
               padding: const EdgeInsets.only(bottom: 80, top: 10, left: 16, right: 16),
-              itemCount: resController.restaurants.length,
+              itemCount: resController.displayedRestaurants.length,
               itemBuilder: (context, index) {
-                final restaurant = resController.restaurants[index];
+                final restaurant = resController.displayedRestaurants[index];
                 return RestaurantCard(restaurant: restaurant);
               },
             );
@@ -116,9 +130,25 @@ class _HomePageState extends State<HomePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                _buildAnimatedFab(Icons.search, "Buscar", Colors.blue, () => Get.snackbar("Em breve", "Busca")),
+                Obx(() {
+                  bool isActive = resController.currentSearch.value.isNotEmpty;
+                  return _buildAnimatedFab(
+                    Icons.search, 
+                    "Buscar", 
+                    isActive ? Colors.orange : Colors.blue,
+                    _showSearchDialog
+                  );
+                }),
                 const SizedBox(height: 10),
-                _buildAnimatedFab(Icons.filter_list, "Filtrar", Colors.purple, () => Get.snackbar("Em breve", "Filtro")),
+                Obx(() {
+                  bool isActive = resController.activeTags.isNotEmpty || resController.filterOpenNow.value || resController.sortByDistance.value;
+                  return _buildAnimatedFab(
+                    Icons.filter_list, 
+                    "Filtrar", 
+                    isActive ? Colors.orange : Colors.purple,
+                    _showFilterSheet
+                  );
+                }),
                 const SizedBox(height: 10),
                 _buildAnimatedFab(Icons.add_business, "Add Rest.", Colors.black87, () => Get.toNamed('/add-restaurant')),
               ],
@@ -129,7 +159,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // Widget personalizado para os botões que encolhem
+  // Widget personalizado para os botões animados
   Widget _buildAnimatedFab(IconData icon, String label, Color color, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
