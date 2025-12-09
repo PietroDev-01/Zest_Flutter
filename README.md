@@ -36,7 +36,7 @@
 
 1.  **Clone o repositório:**
     ```bash
-    git clone [https://github.com/SEU_USUARIO/zest.git](https://github.com/SEU_USUARIO/zest.git)
+    git clone [https://github.com/PietroDev-01/Zest_Flutter](https://github.com/PietroDev-01/Zest_Flutter)
     ```
 
 2.  **Instale as dependências:**
