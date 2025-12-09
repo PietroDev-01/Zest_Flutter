@@ -18,7 +18,11 @@ class LoginPage extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.restaurant_menu, size: 100, color: Colors.orange),
+              Image.asset(
+                'assets/icon.png',
+                height: 150,
+                width: 150,
+              ),
               const SizedBox(height: 10),
               const Text(
                 "Bem-vindo ao Zest",

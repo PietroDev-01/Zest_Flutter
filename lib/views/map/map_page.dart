@@ -21,22 +21,33 @@ class _MapPageState extends State<MapPage> {
   @override
   void initState() {
     super.initState();
-    _goToUserLocation();
 
-    ever(resController.restaurantToFocus, (RestaurantModel? restaurant) {
-      if (restaurant != null && mapController != null) {
-        mapController!.animateCamera(
-          CameraUpdate.newLatLngZoom(
-            LatLng(restaurant.latitude, restaurant.longitude),
-            18,
-          ),
-        );
+    ever(resController.restaurantToFocus, (RestaurantModel? restaurant) async {
+      if (restaurant != null) {
+        int tries = 0;
+        while (mapController == null && tries < 20) {
+          await Future.delayed(const Duration(milliseconds: 100));
+          tries++;
+        }
+
+        if (mapController != null) {
+          mapController!.animateCamera(
+            CameraUpdate.newLatLngZoom(
+              LatLng(restaurant.latitude, restaurant.longitude),
+              18,
+            ),
+          );
+        }
         resController.restaurantToFocus.value = null;
       }
     });
   }
 
   Future<void> _goToUserLocation() async {
+    if (resController.restaurantToFocus.value != null) {
+      print("Bloqueando ida ao usuário pois há foco pendente.");
+      return;
+    }
     try {
       Position position = await Geolocator.getCurrentPosition();
       mapController?.animateCamera(
@@ -86,7 +97,12 @@ class _MapPageState extends State<MapPage> {
                 target: _initialPosition,
                 zoom: 12,
               ),
-              onMapCreated: (controller) => mapController = controller,
+              onMapCreated: (controller) {
+                mapController = controller;
+                if (resController.restaurantToFocus.value == null) {
+                  _goToUserLocation();
+                }
+              },
               markers: markers,
               myLocationEnabled: true,
               myLocationButtonEnabled: false,

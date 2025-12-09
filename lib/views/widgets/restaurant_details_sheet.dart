@@ -132,12 +132,18 @@ class RestaurantDetailsSheet extends StatelessWidget {
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: isFromHome ? _goToMapTab : _openMapRoute,
-                    icon: Icon(isFromHome ? Icons.location_on : Icons.map, color: Colors.white),
+                    icon: Icon(
+                      isFromHome ? Icons.map : Icons.alt_route, 
+                      color: Colors.white
+                    ),
                     label: Text(
                       isFromHome ? "Ver no Mapa" : "Definir Rota",
                       style: const TextStyle(color: Colors.white)
                     ),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, padding: const EdgeInsets.symmetric(vertical: 12)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isFromHome ? Colors.blue : Colors.deepPurple, 
+                      padding: const EdgeInsets.symmetric(vertical: 12)
+                    ),
                   ),
                 ),
               ],

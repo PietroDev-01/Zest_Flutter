@@ -1,20 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:geolocator/geolocator.dart';
 import '../controllers/navigation_controller.dart';
 import 'home/home_page.dart';
 import 'map/map_page.dart';
 import 'profile/profile_page.dart';
 
-class RootPage extends StatelessWidget {
+class RootPage extends StatefulWidget {
+  RootPage({super.key});
+
+  @override
+  State<RootPage> createState() => _RootPageState();
+}
+
+class _RootPageState extends State<RootPage> {
   final NavigationController navCtrl = Get.put(NavigationController());
 
   final List<Widget> _pages = [
     HomePage(),
     MapPage(),
-    ProfilePage(), 
+    ProfilePage(),
   ];
 
-  RootPage({super.key});
+  @override
+  void initState() {
+    super.initState();
+    _checkPermission();
+  }
+
+  Future<void> _checkPermission() async {
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,8 +42,6 @@ class RootPage extends StatelessWidget {
         index: navCtrl.selectedIndex.value,
         children: _pages,
       )),
-      
-      // O Menu Inferior Fixo
       bottomNavigationBar: Obx(() => BottomNavigationBar(
         currentIndex: navCtrl.selectedIndex.value,
         onTap: (index) {
